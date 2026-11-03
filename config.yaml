@@ -1,0 +1,116 @@
+# ============================================================
+# FlClash / mihomo 配置（手动加节点版）
+# ------------------------------------------------------------
+# 加节点只需要做一件事：往下面 proxies: 里追加一个 "- {...}" 块。
+# 节点会自动出现在「🚀 节点选择 / ♻️ 自动选择」里，无需改 proxy-groups。
+# 示例见同目录 nodes-examples.yaml
+# ============================================================
+
+mixed-port: 7890                 # HTTP + SOCKS 混合端口
+allow-lan: true                  # 允许局域网连接
+bind-address: "*"
+mode: rule                       # rule / global / direct
+log-level: info
+ipv6: false
+unified-delay: true
+tcp-concurrent: true
+find-process-mode: "off"
+
+external-controller: 127.0.0.1:9090   # 面板地址（FlClash 内部用）
+
+profile:
+  store-selected: true           # 记住手动选中的节点
+  store-fake-ip: true
+
+# ---------------- DNS ----------------
+dns:
+  enable: true
+  ipv6: false
+  listen: 0.0.0.0:1053
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - "*.lan"
+    - "*.local"
+    - "localhost.ptlogin2.qq.com"
+    - "+.msftconnecttest.com"
+    - "+.msftncsi.com"
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  nameserver:
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
+  fallback:
+    - https://1.1.1.1/dns-query
+    - https://8.8.8.8/dns-query
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+
+# ============================================================
+#  ★★★ 在这里加节点 ★★★
+#  每行一个 "- { ... }"，缩进两格，内容用 { } 单行写最省事。
+#  支持的常用类型：ss / vmess / vless / trojan / hysteria2 / tuic
+# ============================================================
+proxies: []
+
+# ============================================================
+#  可选：订阅链接（不用订阅就把整段注释掉/删掉）
+#  保留时，订阅里的节点也会自动并入「节点选择」组
+# ============================================================
+# proxy-providers:
+#   airport:
+#     type: http
+#     url: "https://你的订阅地址?clash=1"
+#     interval: 86400           # 24 小时更新一次
+#     path: ./providers/airport.yaml
+#     health-check:
+#       enable: true
+#       url: https://www.gstatic.com/generate_204
+#       interval: 600
+
+# ---------------- 策略组 ----------------
+proxy-groups:
+  - name: 🚀 节点选择
+    type: select
+    include-all: true            # 自动包含所有手动节点 + 订阅节点
+    proxies:
+      - ♻️ 自动选择
+      - DIRECT
+
+  - name: ♻️ 自动选择
+    type: url-test
+    include-all: true
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+
+  - name: 🐟 兜底
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - DIRECT
+
+# ---------------- 分流规则 ----------------
+rules:
+  # 本机 / 内网直连
+  - DOMAIN-SUFFIX,local,DIRECT
+  - IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
+  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+  - IP-CIDR,100.64.0.0/10,DIRECT,no-resolve
+  - IP-CIDR6,fc00::/7,DIRECT,no-resolve
+
+  # 常见广告/统计（可按需删）
+  - DOMAIN-SUFFIX,doubleclick.net,REJECT
+  - DOMAIN-KEYWORD,googleadservices,REJECT
+
+  # 国内直连
+  - GEOIP,CN,DIRECT
+
+  # 其余走代理
+  - MATCH,🚀 节点选择
